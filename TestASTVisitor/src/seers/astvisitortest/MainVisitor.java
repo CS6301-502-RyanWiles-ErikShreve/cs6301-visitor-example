@@ -11,6 +11,9 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 
+import seers.astvisitortest.GeneralVisitor.MethodStrings;
+import seers.astvisitortest.GeneralVisitor.VariableStrings;
+
 /**
  * Program that extracts AST info from a Java file
  * 
@@ -41,12 +44,32 @@ public class MainVisitor {
 
 		// print the list of methods and fields of the Java file
 		List<String> fields = visitor.getFields();
-		List<String> methods = visitor.getMethods();
+		List<MethodStrings> methods = visitor.getMethods();
 		for (String field : fields) {
 			System.out.println("Field: " + field);
 		}
-		for (String method : methods) {
-			System.out.println("Method: " + method);
+		
+		for (MethodStrings method : methods) {
+			String methodOutput = "";
+			methodOutput += "M: " + method.name + "(";
+			
+			for (int i = 0; i < method.parameters.size(); i++)
+			{
+				methodOutput += method.parameters.get(i).name + ":" + method.parameters.get(i).type;
+				if (i != method.parameters.size()-1)
+				{
+					methodOutput += ", ";
+				}
+			}
+			
+			methodOutput += ")";
+			
+			System.out.println(methodOutput);
+			
+			for (VariableStrings vs : method.variables)
+			{
+				System.out.println("V: " + vs.name + ":" + vs.type);
+			}
 		}
 	}
 
