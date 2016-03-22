@@ -92,6 +92,9 @@ public class UnusedVisitor extends ASTVisitor {
 	public boolean visit(Assignment node) {
 		
 		// TODO: How might this work with nested assignments?
+		// It actually appears to work just as Eclipse's built in "unused" finder.
+		// In the statement a = b = c = d;, The values b and c will not be counted as read.
+		// This works just as Eclipse does.
 		node.getRightHandSide().accept(this);
 	
 		inLHS = true;
@@ -128,13 +131,19 @@ public class UnusedVisitor extends ASTVisitor {
 
 	@Override
 	public boolean visit(QualifiedName node) {
+		if (inQualifier)
+		{
+			node.getQualifier().accept(this);			
+			node.getName().accept(this);
+		}
+		else
+		{
+			inQualifier = true;
+			node.getQualifier().accept(this);
+			inQualifier = false;
 		
-		// TODO: This does not work with nested qualifiers
-		inQualifier = true;
-		node.getQualifier().accept(this);
-		inQualifier = false;
-		
-		node.getName().accept(this);
+			node.getName().accept(this);
+		}
 		
 		return false;
 	}
