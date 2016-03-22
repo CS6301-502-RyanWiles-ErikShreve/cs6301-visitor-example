@@ -27,9 +27,7 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import seers.astvisitortest.GeneralVisitor;
-import seers.astvisitortest.GeneralVisitor.MethodStrings;
-import seers.astvisitortest.GeneralVisitor.VariableStrings;
+import edu.utdallas.cs6301_502.UnusedVisitor.UnusedItem;
 
 
 class Runner {
@@ -38,7 +36,7 @@ class Runner {
 
 	// Default is relative to project location. 
 	@Option(name = "-s", usage = "Source (java file or directory)")
-	private String source = "..\\SampleCode\\Countdown.java";
+	private String source = ".." + File.separator + "SampleCode" + File.separator + "Countdown.java";
 	
 
 	// receives other command line parameters than options
@@ -82,11 +80,19 @@ class Runner {
 			CompilationUnit compUnit = parseFile(file);
 
 			// create and accept the visitor
-			UnusedVisitor visitor = new UnusedVisitor();
+			UnusedVisitor visitor = new UnusedVisitor(debug);
 			compUnit.accept(visitor);
 			
-			
-			
+			System.out.println("File: " + source);
+		
+			for (String k : visitor.varRead.keySet())
+			{
+				if (!visitor.varRead.get(k).wasRead)
+				{
+					UnusedItem ui = visitor.varRead.get(k);
+					System.out.println("* The [" + ui.type + "] ["+ ui.name + "] is declared but never read in the code (line:[" + ui.lineNumber + "])");
+				}
+			}
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -138,7 +144,8 @@ class Runner {
 		parser.setCompilerOptions(options);
 		parser.setResolveBindings(true);
 
-		// parser.setEnvironment(classPaths, sourceFolders, encodings, true);
+		parser.setEnvironment(null, null, null, true);
+		//parser.setEnvironment(classPaths, sourceFolders, encodings, true);
 	}
 	
 }
