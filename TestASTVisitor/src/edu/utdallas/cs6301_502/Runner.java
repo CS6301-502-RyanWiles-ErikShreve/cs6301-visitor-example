@@ -80,7 +80,8 @@ class Runner {
 			CompilationUnit compUnit = parseFile(file);
 
 			// create and accept the visitor
-			UnusedVisitor visitor = new UnusedVisitor(debug);
+			UnusedVisitor visitor = new UnusedVisitor();
+			visitor.setDebug(debug);
 			compUnit.accept(visitor);
 			
 			System.out.println("File: " + source);
@@ -90,7 +91,12 @@ class Runner {
 				if (!visitor.varRead.get(k).wasRead)
 				{
 					UnusedItem ui = visitor.varRead.get(k);
-					System.out.println("* The [" + ui.type + "] ["+ ui.name + "] is declared but never read in the code (line:[" + ui.lineNumber + "])");
+					if (ui.varBinding != null)
+					{
+						String type = "variable";
+						if (ui.varBinding.isField()) {type = "field";}
+						System.out.println("* The [" + type + "] ["+ ui.varBinding.getName() + "] is declared but never read in the code (line:[" + ui.lineNumber + "])");
+					}
 				}
 			}
 			
