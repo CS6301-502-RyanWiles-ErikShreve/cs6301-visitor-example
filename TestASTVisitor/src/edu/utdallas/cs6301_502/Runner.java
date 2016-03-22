@@ -27,7 +27,7 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import edu.utdallas.cs6301_502.UnusedVisitor.UnusedItem;
+import edu.utdallas.cs6301_502.UnusedVisitor.VarFieldInfo;
 
 
 class Runner {
@@ -90,12 +90,12 @@ class Runner {
 			{
 				if (!visitor.varRead.get(k).wasRead)
 				{
-					UnusedItem ui = visitor.varRead.get(k);
-					if (ui.varBinding != null)
+					VarFieldInfo info = visitor.varRead.get(k);
+					if (info.varBinding != null)
 					{
 						String type = "variable";
-						if (ui.varBinding.isField()) {type = "field";}
-						System.out.println("* The [" + type + "] ["+ ui.varBinding.getName() + "] is declared but never read in the code (line:[" + ui.lineNumber + "])");
+						if (info.varBinding.isField()) {type = "field";}
+						System.out.println("* The [" + type + "] ["+ info.varBinding.getName() + "] is declared but never read in the code (line:[" + info.lineNumber + "])");
 					}
 				}
 			}

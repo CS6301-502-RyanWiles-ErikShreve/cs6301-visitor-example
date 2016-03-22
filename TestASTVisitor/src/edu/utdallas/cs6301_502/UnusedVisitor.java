@@ -11,6 +11,7 @@ import org.eclipse.jdt.core.dom.IVariableBinding;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
 import org.eclipse.jdt.core.dom.PackageDeclaration;
+import org.eclipse.jdt.core.dom.QualifiedName;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
@@ -32,33 +33,32 @@ import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
  */
 public class UnusedVisitor extends ASTVisitor {
 
+	private boolean inLHS = false;
+	private boolean inQualifier = false;
 	
-
-
-	private boolean inMethod = false;
-	private boolean inRHS = false;
-	private boolean inMethodInvocation = false;
-	
-	public HashMap<String, UnusedItem> varRead;
+	public HashMap<String, VarFieldInfo> varRead;
 	
 	private boolean debug = false;
 	
-	public class UnusedItem
+	public class VarFieldInfo
 	{
-		String type;
-		String name;
+		IVariableBinding varBinding;
 		int lineNumber;
 		boolean wasRead;
 		
-		public UnusedItem(String type, String name, int lineNumber) {
+		public VarFieldInfo(IVariableBinding varBinding, int lineNumber) {
 			super();
-			this.type = type;
-			this.name = name;
+			this.varBinding = varBinding;
 			this.lineNumber = lineNumber;
 			this.wasRead = false;
 		}
 		
-		
+		public VarFieldInfo(boolean wasRead) {
+			super();
+			this.varBinding = null;
+			this.lineNumber = 0;
+			this.wasRead = wasRead;
+		}
 	}
 	
 	/**
@@ -68,15 +68,21 @@ public class UnusedVisitor extends ASTVisitor {
 		varRead = new HashMap<>();
 	}
 
-	public UnusedVisitor(boolean debug) {
-		varRead = new HashMap<>();
+	public boolean isDebug() {
+		return debug;
+	}
+
+	public void setDebug(boolean debug) {
 		this.debug = debug;
 	}
-	
+
+
+
 	private void debug(String msg)
 	{
 		if (debug)	System.out.println(msg);
 	}
+	
 	
 	/**
 	 * Assignments are made within methods.
@@ -85,108 +91,108 @@ public class UnusedVisitor extends ASTVisitor {
 	@Override
 	public boolean visit(Assignment node) {
 		
-	
-		inRHS = true;
+		// TODO: How might this work with nested assignments?
 		node.getRightHandSide().accept(this);
-		inRHS = false;
-		
+	
+		inLHS = true;
+		node.getLeftHandSide().accept(this);
+		inLHS = false;
 		
 		return false;
 	}
 
 	
+
+//	@Override
+//	public boolean visit(MethodInvocation node) {
+//
+//		Expression e1 = node.getExpression();
+//		
+//		if (e1 != null) {
+//			e1.accept(this);
+//			debug(e1.toString());
+//		}
+//		
+//		@SuppressWarnings("unchecked")
+//		List<Expression> expressions = node.arguments();
+//		for (Expression e : expressions)
+//		{
+//			e.accept(this);
+//		}
+//
+//		return false;
+//	}
+
+
+
 
 	@Override
-	public boolean visit(MethodInvocation node) {
-
-		inMethodInvocation = true;
-
-		Expression e1 = node.getExpression();
+	public boolean visit(QualifiedName node) {
 		
-		if (e1 != null) {
-			e1.accept(this);
-			debug(e1.toString());
-		}
+		// TODO: This does not work with nested qualifiers
+		inQualifier = true;
+		node.getQualifier().accept(this);
+		inQualifier = false;
 		
-		@SuppressWarnings("unchecked")
-		List<Expression> expressions = node.arguments();
-		for (Expression e : expressions)
-		{
-			e.accept(this);
-		}
-		inMethodInvocation = false;
+		node.getName().accept(this);
+		
 		return false;
 	}
-
-
-
 
 	@Override
 	public boolean visit(SimpleName node) {
-		
-		if (inRHS || inMethodInvocation)
+
+		if (!inLHS || inQualifier)
 		{
 			debug("SimpleName: Key: " + node.resolveBinding().getKey());
 			if (varRead.containsKey(node.resolveBinding().getKey()))
 			{
-				UnusedItem ui = varRead.get(node.resolveBinding().getKey());
-				ui.wasRead = true;				
-				varRead.put(node.resolveBinding().getKey(), ui);
+				VarFieldInfo info = varRead.get(node.resolveBinding().getKey());
+				info.wasRead = true;				
+			}
+			else
+			{
+				VarFieldInfo info = new VarFieldInfo(true);
+				varRead.put(node.resolveBinding().getKey(), info);
 			}
 		}
-		
+
 		return super.visit(node);
 	}
 
-
-
-	// TODO: This won't handle the case where a field is used before it is declared.
 	@Override
 	public boolean visit(VariableDeclarationFragment node) {
 		
 		IVariableBinding binding = (IVariableBinding) node.getName().resolveBinding();
 		
-		// TODO: Is inMethod needed?
-		if (inMethod || binding.isField())
+		CompilationUnit cu = (CompilationUnit) node.getRoot();
+
+		if (!varRead.containsKey(node.getName().resolveBinding().getKey()))
 		{
-			CompilationUnit cu = (CompilationUnit) node.getRoot();
-			
-			String type = "variable";
-			if (binding.isField())
-			{
-				type = "field";
-			}
-			
-			
-			UnusedItem ui = new UnusedItem(type, 
-					node.getName().getFullyQualifiedName(), 
-					cu.getLineNumber(node.getStartPosition()));
-			varRead.put(node.getName().resolveBinding().getKey(), ui);			
-		}	
+			VarFieldInfo info = new VarFieldInfo(binding, cu.getLineNumber(node.getStartPosition()));
+			varRead.put(node.getName().resolveBinding().getKey(), info);
+		}
+		else
+		{
+			VarFieldInfo info = varRead.get(node.getName().resolveBinding().getKey());
+			info.varBinding = binding;
+			info.lineNumber = cu.getLineNumber(node.getStartPosition());
+		}
+
 		
-		return true;
+		if (node.getInitializer() != null) {node.getInitializer().accept(this);}
+		
+		return false; 
 	}
 
 	@Override
 	public boolean visit(PackageDeclaration node) {
-		inMethod = false;
-		inRHS = false;
-		inMethodInvocation = false;
+		// Use the package declaration as a place to init
+		inLHS = false;
+		inQualifier = false;
 		return super.visit(node);
 	}
 
 
-	@Override
-	public void endVisit(MethodDeclaration node) {
-		inMethod = false;
-		super.endVisit(node);
-	}
-
-
-	@Override
-	public boolean visit(MethodDeclaration node) {
-		inMethod = true;
-		return super.visit(node);
-	}
 
 }
